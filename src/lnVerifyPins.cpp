@@ -1,10 +1,12 @@
 //
 // updated by ...: Loreto Notarantonio
-// Date .........: 29-06-2025 20.06.54
+// Date .........: 16-09-2025 12.10.00
 //
 
 #include <Arduino.h> // in testa anche per le definizioni dei type
-#include "@serialRead.h"
+#include "driver/ledc.h"
+
+#include "lnSerialRead.h" // waitForAnyChar
 #define ESP32_WROOM_32E_2RELAY_MODULE   1
 #define ESP32_WROOM_32_MODULE           2
 
@@ -28,28 +30,32 @@ const char PROGMEM *TAB = "    ";
 PINS myPins;
 PINS *pins = &myPins;
 
-// prototypes
-// int32_t readSerialChar(void);
-// int32_t readSerialInt(void);
-// bool waitForChar(char chr);
+
+extern char receivedChars[];
 
 
 // ################################################################
 // #
 // ################################################################
-void _checkOutputPin(uint8_t pin) {
+void toggleOutputPin(uint8_t pin) {
 
     Serial.printf("\t[pin: %2d] ", pin);
     digitalWrite(pin, LOW); pinMode(pin, OUTPUT);
 
     digitalWrite(pin, LOW);
-    delay(1000); Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(50);
+    Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(1000);
 
     digitalWrite(pin, HIGH);
-    delay(1000); Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(50);
+    Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(1000);
 
     digitalWrite(pin, LOW);
-    delay(1000); Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(50);
+    Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(1000);
 
     pinMode(pin, INPUT);
     delay(1000);
@@ -61,21 +67,36 @@ void _checkOutputPin(uint8_t pin) {
 // ################################################################
 // #
 // ################################################################
-void discovery_ESP32_Output_Pins( uint8_t my_pins[], uint8_t count) {
-    Serial.printf("numero di pins %d\n", count);
+void pinOFF(uint8_t pin) {
+    Serial.printf("\tsetting pin: %2d OFF", pin);
 
-    for (int i = 0; i < count; i++) {
-        uint8_t pin = my_pins[i];
-        _checkOutputPin(pin);
-    }
+    digitalWrite(pin, LOW);
+    delay(50);
+    Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(1000);
 
+    Serial.printf("\n");
+}
+
+// ################################################################
+// #
+// ################################################################
+void pinON(uint8_t pin) {
+    Serial.printf("\tsetting pin: %2d ON", pin);
+
+    digitalWrite(pin, HIGH);
+    delay(50);
+    Serial.printf(" - %s", str_pinLevel[digitalRead(pin)]);
+    delay(1000);
+
+    Serial.printf("\n");
 }
 
 
 // ################################################################
 // #
 // ################################################################
-void _checkInputPin(uint8_t pin) {
+void processInputPin(uint8_t pin) {
 
     // Serial.printf("working on INPUT_PULLUP pin: %d\n", pin);
     pinMode(pin, INPUT_PULLUP);
@@ -84,6 +105,20 @@ void _checkInputPin(uint8_t pin) {
     Serial.printf("\t[pin: %d] - status: %s", pin, str_pinLevel[digitalRead(pin)]); waitForChar(" - reset  pin setting ['c' to continue]: ", 'c');
     Serial.printf("\t[pin: %d] - status: %s", pin, str_pinLevel[digitalRead(pin)]);
     Serial.printf("\n\n");
+}
+
+
+// ################################################################
+// #
+// ################################################################
+void discovery_ESP32_Output_Pins( uint8_t my_pins[], uint8_t count) {
+    Serial.printf("numero di pins %d\n", count);
+
+    for (int i = 0; i < count; i++) {
+        uint8_t pin = my_pins[i];
+        toggleOutputPin(pin);
+    }
+
 }
 
 
@@ -104,7 +139,7 @@ void discovery_ESP32_Input_Pins( uint8_t my_pins[], uint8_t count) {
 
     for (int i = 0; i < count; i++) {
         uint8_t pin = my_pins[i];
-        _checkInputPin(pin);
+        processInputPin(pin);
     }
 }
 
@@ -152,7 +187,7 @@ void setup() {
         uint8_t i_pins[] =  { 0,    2,    4, 5,                     12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39};
         pins->input_count = copyArray(i_pins, pins->input, sizeof(i_pins));
 
-        uint8_t o_pins[] =  { 0,    2, 3, 4, 5,                     12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 99 };
+        uint8_t o_pins[] =  { 0,    2, 3, 4, 5,                     12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33 };
         pins->output_count = copyArray(o_pins, pins->output, sizeof(o_pins));
 
     }
@@ -162,7 +197,7 @@ void setup() {
         uint8_t i_pins[] =  { 0,    2,    4, 5,                     12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39};
         pins->input_count = copyArray(i_pins, pins->input, sizeof(i_pins));
 
-        uint8_t o_pins[] =  { 0,    2, 3, 4, 5,                     12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 99};
+        uint8_t o_pins[] =  { 0,    2, 3, 4, 5,                     12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33};
         pins->output_count = copyArray(o_pins, pins->output, sizeof(o_pins));
     }
 
@@ -186,7 +221,7 @@ void allOut(uint8_t  *pins, uint8_t count) {
                 return;
             }
         }
-        _checkOutputPin(pins[i]);
+        toggleOutputPin(pins[i]);
     }
 }
 
@@ -194,78 +229,119 @@ void allOut(uint8_t  *pins, uint8_t count) {
 // ################################################################
 // #
 // ################################################################
-bool checkPin(uint8_t  *pins, uint8_t count, uint8_t match_pin, char pin_type) {
+bool isValidPin(uint8_t pin_nr, uint8_t  *pins, uint8_t count) {
     bool found=false;
     for (int i = 0; i < count; i++) {
-        if (pins[i] == match_pin) {
-            if (pin_type == 'i') {
-                _checkInputPin(pins[i]);
-            }
-            else {
-                _checkOutputPin(pins[i]);
-            }
+        if (pins[i] == pin_nr) {
             found=true;
             break;
         }
     }
+    // if (!found) {
+    //     Serial.printf("\n\t\tVALID pins: ");
+    //     for (int i = 0; i < count; i++) {
+    //         Serial.printf("%d, ", pins[i]);
+    //     }
+    //     Serial.printf("\n");    }
     return found;
 }
 
 
 
 
+// const char TAB=""
 // ################################################################
 // #
 // ################################################################
 void loop() {
-    static char choice = 0;
-    bool found=false;
-    // schegle input/output
-    if (choice == 0) {
-        Serial.printf("\n\tplease enter pin type i[nput] o[utput]: ");
-        choice = waitForAnyChar("io");
-        Serial.printf("\n\tchoice: %c\n", choice);
-        if (choice == 'i') {
-            Serial.printf("available INPUT pins:\n\t");
+    // static char mode = 0;
+
+
+    // mi aspetto il primo char = 'o' oppure 'i'
+    // il resto è il numero del pin
+
+    // Serial.printf("\n\n\t\tINPUT pins: ");
+    // for (int i = 0; i < pins->input_count; i++) {
+    //     Serial.printf("%d, ", pins->input[i]);
+    // }
+    // Serial.printf("\n");
+
+    // Serial.printf("\t\tOUTPUT pins:");
+    // for (int i = 0; i < pins->output_count; i++) {
+    //     Serial.printf("%d, ", pins->output[i]);
+    // }
+    // Serial.printf("\n");
+
+
+
+    Serial.printf("\n%splease enter pin to check:\n", TAB);
+    Serial.printf("%sixx (INPUT)\n", TAB);
+    Serial.printf("%stxx (toggle OUTPUT)\n", TAB);
+    Serial.printf("%slxx (set OUTPUT-LOW)\n", TAB);
+    Serial.printf("%shxx (set OUTPUT-HIGH)\n", TAB);
+    Serial.printf("%sfxx (1000Hz on pin)\n", TAB);
+    Serial.printf("%swhere xx is the pin_nr >: ", TAB);
+
+    uint8_t n_chars=readSerialData("ithlf0123456789", 4); // max 3 char, es,: i12
+    // if ( (n_chars < 1) || (receivedChars[0] != 'i' && receivedChars[0] != 'o') ) {
+    if ( (n_chars < 1)  ) {
+        return;
+    }
+
+    char mode=receivedChars[0];
+    int32_t pin_nr=atoi(&receivedChars[1]);
+
+
+
+    if (mode == 'i') {
+        if (isValidPin(pin_nr, pins->input, pins->input_count)) {
+            Serial.printf("%spin %ld as INPUT", TAB, pin_nr);
+            processInputPin(pin_nr);
+        }
+
+        else {
+            Serial.printf("\n%spin %d not in list, available INPUT pins:\n\t", TAB, pin_nr);
             for (int i = 0; i < pins->input_count; i++) {
                 Serial.printf("%d, ", pins->input[i]);
             }
         }
 
-        else if (choice == 'o') {
-            Serial.printf("available OUTPUT pins:\n\t");
-            for (int i = 0; i < pins->output_count; i++) {
-                Serial.printf("%d, ", pins->output[i]);
+    }
+
+    else if (mode == 't' || mode == 'l' || mode == 'h' || mode == 'f') {
+        if (isValidPin(pin_nr, pins->output, pins->output_count)) {
+            Serial.printf("%spin %ld as OUTPUT (mode: %c)", TAB, pin_nr, mode);
+
+            pinMode(pin_nr, OUTPUT);
+            digitalWrite(pin_nr, LOW);
+
+            if (mode == 'l') {
+                pinOFF(pin_nr);
+            }
+            else if (mode == 't') {
+                toggleOutputPin(pin_nr);
+            }
+            else if (mode == 'h') {
+                pinON(pin_nr);
+            }
+            else if (mode == 'f') {
+                int channel = 0;
+                int frequency=1000;
+                ledcAttachPin(pin_nr, channel); // channel
+                ledcWriteTone(channel, frequency); // Imposta frequenza, duty cycle 50% automatico
+                delay(1000);
+                ledcWrite(channel, 0); // spegni
+                ledcDetachPin(pin_nr); //
+
+                // tone(pin_nr, 800, 2000);
             }
         }
 
         else {
-            Serial.printf("\n\trno choice, up-level: %c", choice);
-            choice = 0;
-            return;
-        }
-
-    }
-
-    // Serial.printf("\n\tchoice2: %c", choice);
-    Serial.printf("\n\n\tplease enter pin number (choice: %c): ", choice);
-    int32_t pin_nr = readSerialInt();
-    if (pin_nr < 0) { // return no pin
-        choice = 0;
-        return; // loop
-    }
-
-    else if (choice == 'i') {
-        if (! checkPin(pins->input, pins->input_count, pin_nr, choice)) {
-            Serial.printf("\n\tERROR pin %d not in list!\n\n", pin_nr);
-        }
-    }
-    else if (choice == 'o') {
-        if (pin_nr == 99) {
-            allOut(pins->output, pins->output_count-1);
-        }
-        else if (! checkPin(pins->output, pins->output_count, pin_nr, choice)) {
-            Serial.printf("\n\tERROR pin %d not in list!\n\n", pin_nr);
+            Serial.printf("\n%spin %d not in list, available OUTPUT pins:\n\t", TAB, pin_nr);
+            for (int i = 0; i < pins->output_count; i++) {
+                Serial.printf("%d, ", pins->output[i]);
+            }
         }
     }
 
